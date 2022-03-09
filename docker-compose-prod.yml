@@ -1,0 +1,12 @@
+version: "3.8"
+services:
+  lifehackd:
+    image: ghcr.io/lifehackerhansol/lifehackd
+    volumes:
+      - ./data:/home/lifehackd/data
+    secrets:
+      - lifehackd-config
+
+secrets:
+  lifehackd-config:
+    file: ./config.json
