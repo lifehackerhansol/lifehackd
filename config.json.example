@@ -1,4 +1,10 @@
 {
     "TOKEN": "",
-    "PREFIX": "."
+    "PREFIX": ".",
+
+    "JENKINS": {
+        "URL": "",
+        "USER": "",
+        "LINEAGE_TOKEN": ""
+    }
 }

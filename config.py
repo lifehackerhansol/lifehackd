@@ -18,4 +18,9 @@ def loadConfiguration() -> Dict[str, Any]:
     botConfig['TOKEN'] = config['TOKEN']
     botConfig['PREFIX'] = [x for x in config['PREFIX']]
 
+    # Jenkins stuff
+    botConfig['JENKINS_URL'] = config['JENKINS']['URL']
+    botConfig['JENKINS_USER'] = config['JENKINS']['USER']
+    botConfig['JENKINS_LINEAGE_TOKEN'] = config['JENKINS']['LINEAGE_TOKEN']
+
     return botConfig
