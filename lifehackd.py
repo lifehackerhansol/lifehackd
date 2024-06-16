@@ -18,7 +18,6 @@
 #
 
 import asyncio
-import json
 import logging
 import os
 
@@ -26,6 +25,7 @@ import aiohttp
 import discord
 from discord.ext import commands
 
+from config import loadConfiguration
 from utils.sql import SQLDB
 from utils.utils import create_error_embed
 
@@ -34,16 +34,17 @@ log = logging.getLogger("bot")
 
 
 class lifehackd(commands.Bot):
-    def __init__(self, command_prefix):
+    def __init__(self, configuration):
         intents = discord.Intents(guilds=True, members=True, bans=True, messages=True, message_content=True)
         allowed_mentions = discord.AllowedMentions(everyone=False, roles=False)
         super().__init__(
-            command_prefix=command_prefix,
+            command_prefix=configuration['PREFIX'],
             intents=intents,
             allowed_mentions=allowed_mentions,
             status=discord.Status.online,
             case_insensitive=True
         )
+        self.config = configuration
         self.db = SQLDB(self)
 
     async def load_cogs(self):
@@ -124,10 +125,8 @@ async def bootstrap():
     discord.utils.setup_logging(handler=logging.FileHandler('bot.log', encoding='utf-8', mode='w'))
     discord.utils.setup_logging()
 
-    f = open("config.json")
-    configuration = json.load(f)
-    f.close()
-    bot = lifehackd([x for x in configuration['PREFIX']])
+    configuration = loadConfiguration()
+    bot = lifehackd(configuration)
     bot.help_command = commands.DefaultHelpCommand()
     print('Starting lifehackd...')
     bot.session = aiohttp.ClientSession()

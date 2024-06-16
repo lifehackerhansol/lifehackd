@@ -7,6 +7,7 @@ COPY ./requirements.txt .
 RUN python3 -m pip install -r requirements.txt
 USER lifehackd
 
+COPY config.py config.py
 COPY lifehackd.py lifehackd.py
 COPY utils utils
 COPY cogs cogs
