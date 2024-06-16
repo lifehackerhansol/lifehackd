@@ -39,14 +39,17 @@ class Jenkins(commands.Cog):
 
     @commands.command()
     async def build(self, ctx, device: str, branch: str, release_type: str, manifest: Optional[str] = ""):
-        local_manifest_url = urllib.parse.quote_plus(manifest if manifest else f"https://raw.githubusercontent.com/lifehacker-101/hudson/main/manifests/{branch}/devices/{device}.xml")
-        build_trigger_url = f"{self.bot.config['JENKINS_URL']}/job/lineageos/job/{branch}/buildWithParameters?JENKINS_DEVICE={device}&JENKINS_LOCAL_MANIFEST={local_manifest_url}{f'&JENKINS_RELEASE_TYPE={release_type}' if release_type != 'testing' else ''}"
+        async with ctx.typing():
+            local_manifest_url = urllib.parse.quote_plus(manifest if manifest else f"https://raw.githubusercontent.com/lifehacker-101/hudson/main/manifests/{branch}/devices/{device}.xml")
+            build_trigger_url = f"{self.bot.config['JENKINS_URL']}/job/lineageos/job/{branch}/buildWithParameters?JENKINS_DEVICE={device}&JENKINS_LOCAL_MANIFEST={local_manifest_url}{f'&JENKINS_RELEASE_TYPE={release_type}' if release_type != 'testing' else ''}"
 
-        build_post = await self.bot.session.post(build_trigger_url, auth=aiohttp.BasicAuth(self.bot.config["JENKINS_USER"], self.bot.config["JENKINS_LINEAGE_TOKEN"]))
+            build_post = await self.bot.session.post(build_trigger_url, auth=aiohttp.BasicAuth(self.bot.config["JENKINS_USER"], self.bot.config["JENKINS_LINEAGE_TOKEN"]))
 
-        # Jenkins returns 201 when a job is successfully created
-        if build_post.status != 201:
-            await ctx.send(f"Failed to trigger a build with error {build_post.status}")
+            # Jenkins returns 201 when a job is successfully created
+            if build_post.status == 201:
+                await ctx.send(f"Build for {device} on branch {branch} started.")
+            else:
+                await ctx.send(f"Failed to trigger a build with error {build_post.status}.")
 
 
 async def setup(bot):
