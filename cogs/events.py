@@ -34,6 +34,8 @@ class Events(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         ctx = await self.bot.get_context(message)
+        if not ctx.guild:
+            return
         # message deletion only available if you enable logs
         if not await self.bot.db.get_logchannel(ctx.guild.id):
             return
