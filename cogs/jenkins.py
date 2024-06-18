@@ -31,11 +31,20 @@ class Jenkins(commands.Cog):
         self.bot = bot
 
     async def cog_check(self, ctx):
-        if not await self.bot.is_owner(ctx.author):
+        # Jenkins needs to actually be set up in config
+        if not self.bot.config["JENKINS_URL"] or not self.bot.config["JENKINS_USER"]:
             raise commands.CheckFailure()
-        if not self.bot.config["JENKINS_URL"] or self.bot.config["JENKINS_USER"]:
-            return commands.CheckFailure()
-        return True
+        # Bot owner has ultimate perms
+        if await self.bot.is_owner(ctx.author):
+            return True
+        # Some users in specified guild with specified role has perms
+        if self.bot.config['GUILD'] and self.bot.config["JENKINS_DISCORD_ROLE"]:
+            guild = self.bot.get_guild(self.bot.config['GUILD'])
+            if guild:
+                member = guild.get_member(ctx.author.id)
+                if member and member.id == self.bot.config["JENKINS_DISCORD_ROLE"]:
+                    return True
+        return commands.CheckFailure()
 
     @commands.command()
     async def build(self, ctx, device: str, branch: str, release_type: str, manifest: Optional[str] = ""):

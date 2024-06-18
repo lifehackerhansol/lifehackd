@@ -2,9 +2,12 @@
     "TOKEN": "",
     "PREFIX": ".",
 
+    "GUILD": "",
+
     "JENKINS": {
         "URL": "",
         "USER": "",
-        "LINEAGE_TOKEN": ""
+        "LINEAGE_TOKEN": "",
+        "DISCORD_ROLE": null
     }
 }
