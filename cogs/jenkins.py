@@ -44,7 +44,7 @@ class Jenkins(commands.Cog):
                 member = guild.get_member(ctx.author.id)
                 if member and any(role.id == self.bot.config["JENKINS_DISCORD_ROLE"] for role in member.roles):
                     return True
-        return commands.CheckFailure()
+        raise commands.CheckFailure()
 
     @commands.command()
     async def build(self, ctx, device: str, branch: str, release_type: str, manifest: Optional[str] = ""):
