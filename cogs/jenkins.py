@@ -42,7 +42,7 @@ class Jenkins(commands.Cog):
             guild = self.bot.get_guild(self.bot.config['GUILD'])
             if guild:
                 member = guild.get_member(ctx.author.id)
-                if member and member.id == self.bot.config["JENKINS_DISCORD_ROLE"]:
+                if member and any(role.id == self.bot.config["JENKINS_DISCORD_ROLE"] for role in member.roles):
                     return True
         return commands.CheckFailure()
 
