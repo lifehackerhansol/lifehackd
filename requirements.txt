@@ -1,5 +1,5 @@
 aiosqlite~=0.20
 discord.py~=2.4
 jishaku~=2.5
-psutil~=6.0
+psutil~=6.1
 xkcd~=2.4
