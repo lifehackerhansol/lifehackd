@@ -4,12 +4,14 @@ life hack daemon. A Discord bot.
 
 ## How to use
 
+1. Install a MySQL server.
+1. Create a database in the MySQL server dedicated to this bot. It can be named to your liking.
 1. Make a copy of `config.json.example` and name it `config.json`.
 1. Set your bot's token ID.
     - You will need to create a bot over at [Discord Developer Portal](https://discord.com/developers/applications).
 1. (Optional) Set your command prefix to whatever you like.
 1. Install the following for your host:
-    - Python 3.9.x (and its respective pip)
+    - Python 3.11.x (and its respective pip)
 1. Run `pip install -r requirements.txt`
 1. Run the following command:
     - UNIX-based: `python3 lifehackd.py`
