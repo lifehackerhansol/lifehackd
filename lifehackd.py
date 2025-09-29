@@ -66,6 +66,11 @@ class lifehackd(commands.Bot):
             exc = "{}: {}".format(type(e).__name__, e)
             print("Failed to load cog {}\n{}".format(cog, exc))
 
+    async def setup_hook(self):
+        self.session = aiohttp.ClientSession()
+        await self.load_cogs()
+        await self.db.initialize()
+
     async def on_ready(self):
         await self.tree.sync()
         print("lifehackd ready.")
@@ -129,8 +134,6 @@ async def bootstrap():
     bot = lifehackd(configuration)
     bot.help_command = commands.DefaultHelpCommand()
     print('Starting lifehackd...')
-    bot.session = aiohttp.ClientSession()
-    await bot.load_cogs()
     await bot.start(configuration['TOKEN'])
 
 

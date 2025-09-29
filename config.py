@@ -21,6 +21,13 @@ def loadConfiguration() -> Dict[str, Any]:
     # Guild stuff
     botConfig['GUILD'] = config.get('GUILD')
 
+    # Database stuff
+    botConfig['MYSQL_HOST'] = config['MYSQL']['HOST']
+    botConfig['MYSQL_PORT'] = config['MYSQL']['PORT']
+    botConfig['MYSQL_USER'] = config['MYSQL']['USER']
+    botConfig['MYSQL_PASS'] = config['MYSQL']['PASS']
+    botConfig['MYSQL_DB'] = config['MYSQL']['DB']
+
     # Jenkins stuff
     botConfig['JENKINS_URL'] = config['JENKINS']['URL']
     botConfig['JENKINS_USER'] = config['JENKINS']['USER']

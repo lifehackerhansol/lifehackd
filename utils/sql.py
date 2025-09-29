@@ -15,12 +15,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+import contextlib
 import logging
 import os
-import sqlite3
 from datetime import datetime
 
-import aiosqlite
+import aiomysql
+from pymysql.err import OperationalError
 from discord.utils import time_snowflake
 
 
@@ -28,94 +29,107 @@ log = logging.getLogger("bot")
 
 
 class SQLDB():
+    pool: aiomysql.Pool
+
     def __init__(self, bot):
         self.bot = bot
-        self.dbpath = "data/lifehackd.db"
 
+    @contextlib.asynccontextmanager
+    async def acquire_pool_cursor(self):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor(aiomysql.DictCursor) as cursor:
+                yield cursor
+
+    async def initialize(self):
         # Perform migrations
-        # Needs sqlite3 here because __init__ is not async
-        conn = sqlite3.connect(self.dbpath)
-        try:
-            user_version = conn.execute("PRAGMA user_version")
-            ret = user_version.fetchone()
-            revision = ret[0]
+        self.pool = await aiomysql.create_pool(host=self.bot.config['MYSQL_HOST'],
+                                               port=self.bot.config['MYSQL_PORT'],
+                                               user=self.bot.config['MYSQL_USER'],
+                                               password=self.bot.config['MYSQL_PASS'],
+                                               db=self.bot.config['MYSQL_DB'],
+                                               loop=self.bot.loop,
+                                               autocommit=True)
 
-        # if error, set to 0
-        # breaks backward compatibility with pre-user_version dbs
-        except sqlite3.Error:
-            log.debug(f"{self.dbpath} has no user_version set. Applying all schemas...")
-            revision = 0
+        async with self.acquire_pool_cursor() as cursor:
+            version = await cursor.execute("SELECT id FROM db_info")
+            if not version:
+                revision = 0
+            else:
+                ret = await cursor.fetchone()
+                revision = ret["id"]
 
-        updates = os.listdir("dbupdate")
+            updates = os.listdir("dbupdate")
 
-        for i, x in enumerate(updates):
-            updates[i] = x.replace(".sql", "")
-        to_update = []
+            for i, x in enumerate(updates):
+                updates[i] = x.replace(".sql", "")
+            to_update = []
 
-        for i in updates:
-            if int(i) > revision:
-                to_update.append(int(i))
+            for i in updates:
+                if int(i) > revision:
+                    to_update.append(int(i))
 
-        if not to_update:
-            log.info(f"{self.dbpath} is up to date.")
-        else:
-            to_update.sort()
-            log.info(f"Updating {self.dbpath} from {revision} to {to_update[-1]}")
-            for i in to_update:
-                with open(f"dbupdate/{i}.sql", "r") as f:
-                    conn.executescript(f.read())
-            conn.execute(f"PRAGMA user_version={to_update[-1]}")
-            log.info(f"Updated {self.dbpath} from {revision} to {to_update[-1]}")
-            conn.close()
+            if not to_update:
+                log.info("Database is up to date.")
+            else:
+                to_update.sort()
+                log.info(f"Updating database from {revision} to {to_update[-1]}")
+                for i in to_update:
+                    with open(f"dbupdate/{i}.sql", "r") as f:
+                        commands = f.read().split(';')
+                        for j in commands:
+                            try:
+                                await cursor.execute(j)
+                            except OperationalError:
+                                # Due to the nature of split() sometimes newlines get added here
+                                # which freaks out pymysql
+                                print("Command skipped: ", j)
+                await cursor.execute(f"UPDATE db_info SET id={to_update[-1]}")
+                log.info(f"Updated database from {revision} to {to_update[-1]}")
 
     def generate_id(self) -> int:
         return time_snowflake(datetime.now())
 
     async def get_guild(self, guild_id: int):
-        async with aiosqlite.connect(self.dbpath) as conn:
-            conn.row_factory = sqlite3.Row
-            return await conn.execute_fetchall(f"SELECT * FROM guilds WHERE id={guild_id};")
+        async with self.acquire_pool_cursor() as cursor:
+            await cursor.execute(f"SELECT * FROM guilds WHERE id={guild_id};")
+            return await cursor.fetchall()
 
     async def add_guild(self, guild_id: int):
-        async with aiosqlite.connect(self.dbpath) as conn:
-            await conn.execute_insert(f"INSERT INTO guilds (id) VALUES ({guild_id});")
-            await conn.commit()
+        async with self.acquire_pool_cursor() as cursor:
+            await cursor.execute(f"INSERT INTO guilds (id) VALUES ({guild_id});")
 
     async def get_warns(self, user_id: int, guild_id: int):
-        async with aiosqlite.connect(self.dbpath) as conn:
-            conn.row_factory = sqlite3.Row
-            return await conn.execute_fetchall(f"SELECT * FROM warns WHERE user_id={user_id} AND guild_id={guild_id};")
+        async with self.acquire_pool_cursor() as cursor:
+            await cursor.execute(f"SELECT * FROM warns WHERE user_id={user_id} AND guild_id={guild_id};")
+            return await cursor.fetchall()
 
     async def add_warn(self, user_id: int, issuer_id: int, guild_id: int, reason: str):
         guild = await self.get_guild(guild_id)
         if not guild:
             await self.add_guild(guild_id)
-        async with aiosqlite.connect(self.dbpath) as conn:
-            await conn.execute_insert(
+        async with self.acquire_pool_cursor() as cursor:
+            await cursor.execute(
                 f"INSERT INTO warns (id, user_id, issuer_id, guild_id, reason) VALUES ({self.generate_id()}, {user_id}, {issuer_id}, {guild_id}, '{reason}');"
             )
-            await conn.commit()
 
     async def remove_warn(self, user_id: int, guild_id: int, index: int):
-        async with aiosqlite.connect(self.dbpath) as conn:
-            conn.row_factory = sqlite3.Row
-            warns = await conn.execute_fetchall(f"SELECT * FROM warns WHERE user_id={user_id} AND guild_id={guild_id};")
+        async with self.acquire_pool_cursor() as cursor:
+            await cursor.execute(f"SELECT * FROM warns WHERE user_id={user_id} AND guild_id={guild_id};")
+            warns = await cursor.fetchall()
             warnid = warns[index - 1]["id"]
-            await conn.execute(f"DELETE FROM warns WHERE id={warnid};")
-            await conn.commit()
+            await cursor.execute(f"DELETE FROM warns WHERE id={warnid};")
 
     async def add_modrole(self, guild_id: int, role_id: int):
         guild = await self.get_guild(guild_id)
         if not guild:
             await self.add_guild(guild_id)
-        async with aiosqlite.connect(self.dbpath) as conn:
-            await conn.execute_insert(f"INSERT INTO modroles (id, guild_id) VALUES ({role_id}, {guild_id});")
-            await conn.commit()
+        async with self.acquire_pool_cursor() as cursor:
+            await cursor.execute(f"INSERT INTO modroles (id, guild_id) VALUES ({role_id}, {guild_id});")
 
     async def get_modroles(self, guild_id: int):
-        async with aiosqlite.connect(self.dbpath) as conn:
-            conn.row_factory = sqlite3.Row
-            return await conn.execute_fetchall(f"SELECT id FROM modroles WHERE guild_id={guild_id};")
+        async with self.acquire_pool_cursor() as cursor:
+            await cursor.execute(f"SELECT id FROM modroles WHERE guild_id={guild_id};")
+            return await cursor.fetchall()
 
     async def remove_modrole(self, guild_id: int, role_id: int) -> int:
         modroles = await self.get_modroles(guild_id)
@@ -123,9 +137,8 @@ class SQLDB():
             return 1
         for role in modroles:
             if role_id == role['id']:
-                async with aiosqlite.connect(self.dbpath) as conn:
-                    await conn.execute(f"DELETE FROM modroles WHERE id={role_id} AND guild_id={guild_id};")
-                    await conn.commit()
+                async with self.acquire_pool_cursor() as cursor:
+                    await cursor.execute(f"DELETE FROM modroles WHERE id={role_id} AND guild_id={guild_id};")
                 return 0
         return 2
 
@@ -133,9 +146,8 @@ class SQLDB():
         guild = await self.get_guild(guild_id)
         if not guild:
             await self.add_guild(guild_id)
-        async with aiosqlite.connect(self.dbpath) as conn:
-            await conn.execute(f"UPDATE guilds SET mute_id={role_id} WHERE id={guild_id};")
-            await conn.commit()
+        async with self.acquire_pool_cursor() as cursor:
+            await cursor.execute(f"UPDATE guilds SET mute_id={role_id} WHERE id={guild_id};")
 
     async def get_muterole(self, guild_id: int):
         guild = await self.get_guild(guild_id)
@@ -148,9 +160,8 @@ class SQLDB():
         if not muterole:
             return 1
         if muterole == role_id:
-            async with aiosqlite.connect(self.dbpath) as conn:
-                await conn.execute(f"UPDATE guilds SET mute_id=NULL WHERE id={guild_id};")
-                await conn.commit()
+            async with self.acquire_pool_cursor() as cursor:
+                await cursor.execute(f"UPDATE guilds SET mute_id=NULL WHERE id={guild_id};")
             return 0
         return 2
 
@@ -158,9 +169,8 @@ class SQLDB():
         guild = await self.get_guild(guild_id)
         if not guild:
             await self.add_guild(guild_id)
-        async with aiosqlite.connect(self.dbpath) as conn:
-            await conn.execute(f"UPDATE guilds SET logchannel_id={channel_id} WHERE id={guild_id};")
-            await conn.commit()
+        async with self.acquire_pool_cursor() as cursor:
+            await cursor.execute(f"UPDATE guilds SET logchannel_id={channel_id} WHERE id={guild_id};")
 
     async def get_logchannel(self, guild_id: int):
         guild = await self.get_guild(guild_id)
@@ -173,9 +183,8 @@ class SQLDB():
         if not logchannel:
             return 1
         if logchannel == channel_id:
-            async with aiosqlite.connect(self.dbpath) as conn:
-                await conn.execute(f"UPDATE guilds SET logchannel_id=NULL WHERE id={guild_id};")
-                await conn.commit()
+            async with self.acquire_pool_cursor() as cursor:
+                await cursor.execute(f"UPDATE guilds SET logchannel_id=NULL WHERE id={guild_id};")
             return 0
         return 2
 
@@ -183,24 +192,22 @@ class SQLDB():
         guild = await self.get_guild(guild_id)
         if not guild:
             return None
-        async with aiosqlite.connect(self.dbpath) as conn:
-            conn.row_factory = sqlite3.Row
-            return await conn.execute_fetchall(f"SELECT * FROM invitefilter WHERE guild_id={guild_id};")
+        async with self.acquire_pool_cursor() as cursor:
+            await cursor.execute(f"SELECT * FROM invitefilter WHERE guild_id={guild_id};")
+            return await cursor.fetchall()
 
     async def add_invitefilter(self, guild_id: int, invite: str, alias: str):
         guild = await self.get_guild(guild_id)
         if not guild:
             await self.add_guild(guild_id)
-        async with aiosqlite.connect(self.dbpath) as conn:
-            await conn.execute_insert(
+        async with self.acquire_pool_cursor() as cursor:
+            await cursor.execute(
                 f"INSERT INTO invitefilter (id, guild_id, invite, alias) VALUES ({self.generate_id()}, {guild_id}, '{invite}', '{alias}');"
             )
-            await conn.commit()
 
     async def remove_invitefilter(self, guild_id: int, alias):
-        async with aiosqlite.connect(self.dbpath) as conn:
-            conn.row_factory = sqlite3.Row
-            invite = await conn.execute_fetchall(f"SELECT * FROM invitefilter WHERE guild_id={guild_id} AND alias={alias};")
+        async with self.acquire_pool_cursor() as cursor:
+            await cursor.execute(f"SELECT * FROM invitefilter WHERE guild_id={guild_id} AND alias={alias};")
+            invite = await cursor.fetchall()
             inviteid = invite[0]["id"]
-            await conn.execute(f"DELETE FROM invitefilter WHERE id={inviteid};")
-            await conn.commit()
+            await cursor.execute(f"DELETE FROM invitefilter WHERE id={inviteid};")
