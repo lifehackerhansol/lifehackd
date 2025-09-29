@@ -21,7 +21,7 @@ create table warns
 	id BIGINT PRIMARY KEY,
 	user_id BIGINT NOT NULL,
 	issuer_id BIGINT NOT NULL,
-    guild_id BIGINT NOT NULL REFERENCES guilds(id),
+	guild_id BIGINT NOT NULL REFERENCES guilds(id),
 	reason TEXT
 );
 
@@ -30,6 +30,6 @@ create table invitefilter
 (
 	id BIGINT PRIMARY KEY,
 	guild_id BIGINT NOT NULL REFERENCES guilds(id),
-    invite TEXT,
-    alias TEXT
+	invite TEXT,
+	alias TEXT
 );
