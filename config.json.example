@@ -1,21 +1,37 @@
 {
-    "MYSQL": {
-        "HOST": "",
-        "PORT": 3306,
-        "USER": "",
-        "PASS": "",
-        "DB": ""
+  "logging": {
+    "level": "trace",
+    "filename": "bot.log",
+    "quiet": false,
+    "overwrite": true,
+    "use_color": true,
+    "http": {
+      "enable": true,
+      "filename": "http.log"
     },
-
-    "TOKEN": "",
-    "PREFIX": ".",
-
-    "GUILD": "",
-
-    "JENKINS": {
-        "URL": "",
-        "USER": "",
-        "LINEAGE_TOKEN": "",
-        "DISCORD_ROLE": null
+    "disable_modules": ["WEBSOCKETS", "USER_AGENT"]
+  },
+  "discord": {
+    "token": "",
+    "default_prefix": {                 
+      "enable": true,
+      "prefix": "?"
     }
+  },
+  "MYSQL": {
+    "HOST": "",
+    "PORT": 3306,
+    "USER": "",
+    "PASS": "",
+    "DB": ""
+  },
+  "LIFEHACKD": {
+    "GUILD": null
+  },
+  "JENKINS": {
+    "URL": "",
+    "USER": "",
+    "LINEAGE_TOKEN": "",
+    "DISCORD_ROLE": null
+  }
 }

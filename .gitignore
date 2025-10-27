@@ -1,8 +1,9 @@
 *.json
 ._*
 .DS_Store
-__pycache__
 *.xml
 *.db
-venv
 *.log
+libs
+build
+lifehackd
