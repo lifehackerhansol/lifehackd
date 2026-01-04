@@ -16,7 +16,7 @@ DEFINES		:=
 # Libraries
 # ---------
 
-LIBS		:= -lcurl -ldiscord
+LIBS		:= -ldiscord -lcurl
 LIBDIRS		:= $(CURDIR)/libs
 
 # Build artifacts
